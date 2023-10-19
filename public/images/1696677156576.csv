@@ -1,0 +1,6 @@
+﻿id,username,email,password,fname,lname,age,phone,lineid,work,role
+1,bot1,bot1@hotmail.com,1234,bot1,lbot1,10,9875111,bot1,washdish,admin
+2,bot2,bot2@hotmail.com,1234,bot2,lbot2,10,9875111,bot2,washdish,admin
+3,bot3,bot3@hotmail.com,1234,bot3,lbot3,10,9875111,bot3,washdish,admin
+4,bot4,bot4@hotmail.com,1234,bot4,lbot4,10,9875111,bot4,washdish,admin
+5,bot5,bot5@hotmail.com,1234,bot5,lbot5,10,9875111,bot5,washdish,admin
