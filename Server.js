@@ -16,7 +16,7 @@ config();
 const app =express();
 app.use(core(
     {
-        origin:["http://localhost/chalothon/yangbot_frontend"],
+        origin:["http://158.108.101.25/chalothon/yangbot_frontend"],
         methods:["POST","GET","PUT","DELETE"],
         credentials: true
     }
