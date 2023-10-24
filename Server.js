@@ -10,13 +10,12 @@ import multer from "multer"
 import path from "path"
 import readXlsxFile from 'read-excel-file/node'
 import fs from 'fs';
-import { config } from 'dotenv';
 
-config();
+
 const app =express();
 app.use(core(
     {
-        origin:["http://158.108.101.25"],
+        origin:["http://localhost:3000"],
         methods:["POST","GET","PUT","DELETE"],
         credentials: true
     }
@@ -448,7 +447,7 @@ app.get('/linebot_image', (req, res) => {
           return {
             name: row.img_name,
             // สร้าง URL สำหรับแสดงรูปภาพจากเซิร์ฟเวอร์ Express.js
-            url: `/images/${row.img_name}`
+            url: `http://localhost:3333/images/${row.img_name}`
           };
         });
         res.json({ images: images });
