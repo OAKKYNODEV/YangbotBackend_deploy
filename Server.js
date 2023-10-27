@@ -10,13 +10,14 @@ import multer from "multer"
 import path from "path"
 import readXlsxFile from 'read-excel-file/node'
 import fs from 'fs';
-
+import dotenv from 'dotenv';
+dotenv.config();
 
 
 const app =express();
 app.use(core(
     {
-        origin:["http://localhost:3000"],
+        origin:["http://158.108.101.25"],
         methods:["POST","GET","PUT","DELETE"],
         credentials: true
     }
@@ -25,11 +26,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.static('public'));
 
-const con =  mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  database: 'yang'
-});
+const con =  mysql.createConnection(process.env.DATABASE_URL);
 
 const storage = multer.diskStorage({
     destination:(req,file, cb) => {
@@ -457,6 +454,5 @@ app.get('/linebot_image', (req, res) => {
   });
 
 
-app.listen(3333,()=>{
-    console.log("Server is Runing . . .");
-})
+app.listen(process.env.PORT || 3333)
+conection.end()
