@@ -454,5 +454,6 @@ app.get('/linebot_image', (req, res) => {
   });
 
 
-app.listen(process.env.PORT || 3333)
-con.end()
+app.listen(3333,()=>{
+    console.log("Server is Runing . . .");
+})
