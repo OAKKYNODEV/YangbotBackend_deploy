@@ -12,6 +12,7 @@ import readXlsxFile from 'read-excel-file/node'
 import fs from 'fs';
 
 
+
 const app =express();
 app.use(core(
     {
@@ -24,7 +25,11 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.static('public'));
 
-const con = mysql.createConnection(process.env.DATABASE_URL)
+const con =  mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  database: 'yang'
+});
 
 const storage = multer.diskStorage({
     destination:(req,file, cb) => {
@@ -51,11 +56,11 @@ app.post('/import-excel', upload.single('import-excel'), (req, res) => {
       // วนลูปผ่านแต่ละแถวข้อมูล
       for (let i = 1; i < rows.length; i++) { // เริ่มที่ดัชนี 1 เพื่อข้ามบรรทัดแรก
           const row = rows[i];
-          const [username, email, password, fname, lname, age, phone, lineid, work, image, role] = row;
+          const [username, email, password, fname, lname, age, phone, lineid, work, image ] = row;
 
           // บันทึกข้อมูลใน MySQL
-          const sql = `INSERT INTO webapp_users (username, email, password, fname, lname, age, phone, lineid, work, image, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-          const values = [username, email, password, fname, lname, age, phone, lineid, work, image, role];
+          const sql = `INSERT INTO webapp_researcher (username, email, password, fname, lname, age, phone, lineid, work, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+          const values = [username, email, password, fname, lname, age, phone, lineid, work, image];
 
           con.query(sql, values, (err, result) => {
               if (err) {
@@ -87,18 +92,12 @@ con.connect(function(err){
     }
 })
 
-app.get('/getvisitor',(req,res) => {  //ดึงข้อมูลสมาชิก
-    const sql = "SELECT * FROM webapp_visitor";
-    con.query(sql, (err,result) => {
-        if(err) return res.json({Error:"Get visitor error in Server"})
-        return res.json({Status: "Success", Result: result})
-    })
-})
+
 
 
 app.get('/get/:id', (req, res) => {  //ใช้เพื่อแสดงข้อมูลเดิมใน textfield
     const id = req.params.id;
-    const sql = "SELECT * FROM webapp_users where id = ?";
+    const sql = "SELECT * FROM webapp_researcher where id = ?";
     con.query(sql, [id], (err, result) => {
         if(err) return res.json({Error: "Get employee error in sql"});
         return res.json({Status: "Success", Result: result})
@@ -107,7 +106,7 @@ app.get('/get/:id', (req, res) => {  //ใช้เพื่อแสดงข�
 
 app.put('/update/:id', (req, res) => {  //แก้ไขข้อมูล
     const id = req.params.id;
-    const sql = "UPDATE webapp_users set email = ?, username = ?, fname = ? , lname = ?, age = ?, phone = ?, lineid = ?, work = ? WHERE id = ?";
+    const sql = "UPDATE webapp_researcher set email = ?, username = ?, fname = ? , lname = ?, age = ?, phone = ?, lineid = ?, work = ? WHERE id = ?";
     con.query(sql, [req.body.email,req.body.username,req.body.fname,req.body.lname,req.body.age,req.body.phone,req.body.lineid,req.body.work, id], (err, result) => {
         if(err) return res.json({Error: "update employee error in sql"});
         return res.json({Status: "Success"})
@@ -165,14 +164,15 @@ app.get('/job', (req,res) => {
          })
     })     
     
-
+// ออกจากระบบ
 app.get('/logout', (req,res) => {
     res.clearCookie ('token');
     return res.json({Status:"Success"});
 })
 
+//แอดมิน login
 app.post('/login', (req,res) => {
-    const sql ="SELECT * FROM webapp_users WHERE email  = ? AND password = ?";
+    const sql ="SELECT * FROM webapp_admin WHERE email  = ? AND password = ?";
     con.query(sql, [req.body.email, req.body.password], (err, result) => {
         if(err) return res.json({Status:"Error", Error:"Error in runing query"});
         if(result.length > 0){
@@ -186,9 +186,9 @@ app.post('/login', (req,res) => {
     })
 })
 
-
-app.post('/visitorlogin', (req, res) => {
-    const sql = "SELECT * FROM webapp_visitor Where email = ?";
+//นักวิจัย login
+app.post('/test', (req, res) => {
+    const sql = "SELECT * FROM webapp_researcher Where email = ?";
     con.query(sql, [req.body.email], (err, result) => {
         if(err) return res.json({Status: "Error", Error: "Error in runnig query"});
         if(result.length > 0) {
@@ -209,35 +209,46 @@ app.post('/visitorlogin', (req, res) => {
         }
     })
 })
-
- 
-
-
-app.post('/createvisitor', (req,res) => {
-  const sql ="INSERT INTO webapp_visitor (`username`,`email`,`password`,`fname`,`lname`,`age`,`phone`,`work`,`form`) VALUES (?)";
-  bcrypt.hash(req.body.password.toString(),10,(err,hash) => {
-      if(err) return res.json({Error: "Error in hashing password"});
-      const values =  [
-          req.body.username,
-          req.body.email,
-          hash,
-          req.body.fname,
-          req.body.lname,
-          req.body.age,
-          req.body.phone,
-          req.body.work,
-          req.body.form
-      ]
-      con.query(sql, [values],(err,result) => {
-          if(err) return res.json({Err:"Inside singup query"});
-          return res.json({Status:"Success"});
-      })
+app.post('/researcherlogin', (req,res) => {
+  const sql ="SELECT * FROM webapp_researcher WHERE email  = ? AND password = ?";
+  con.query(sql, [req.body.email, req.body.password], (err, result) => {
+      if(err) return res.json({Status:"Error", Error:"Error in runing query"});
+      if(result.length > 0){
+          const id = result[0].id;
+          const token = jwt.sign({role:"visitor"},"jwt-secret-key", {expiresIn:'1d'});
+          res.cookie('token',token);
+          return res.json({Status:"Success"})
+      } else {
+          return res.json({Status:"Error", Error: "บัญชีผู้ใช้งานไม่ถูกต้อง"});
+      }
   })
 })
+ //สมัครสมาชิก
+//app.post('/createvisitor', (req,res) => {
+  //const sql ="INSERT INTO webapp_visitor (`username`,`email`,`password`,`fname`,`lname`,`age`,`phone`,`work`,`form`) VALUES (?)";
+  //bcrypt.hash(req.body.password.toString(),10,(err,hash) => {
+    //  if(err) return res.json({Error: "Error in hashing password"});
+      //const values =  [
+        //  req.body.username,
+          //req.body.email,
+          //hash,
+          //req.body.fname,
+          //req.body.lname,
+          //req.body.age,
+          //req.body.phone,
+          //req.body.work,
+          //req.body.form
+      //]
+      //con.query(sql, [values],(err,result) => {
+         // if(err) return res.json({Err:"Inside singup query"});
+         // return res.json({Status:"Success"});
+      //})
+  //})
+//})
 
-
+//อัพโหลดรูปภาพเข้าbackend
 app.post('/uploadimg', upload.single('image'), (req, res) => {
-  const sql = "INSERT INTO wepapp_labelsuccess (`date`, `img_name`) VALUES (?, ?)";
+  const sql = "INSERT INTO webapp_uploadimg (`date`, `img_name`) VALUES (?, ?)";
   const values = [
     new Date(), // เพิ่มวันที่ปัจจุบัน
     req.file.filename,
@@ -251,9 +262,9 @@ app.post('/uploadimg', upload.single('image'), (req, res) => {
   });
 });
 
-
+//สร้างบัญชีนักวิจัย
 app.post('/create', upload.single('image'), (req, res) => {
-  const sql = "INSERT INTO webapp_users (`username`,`email`,`password`,`fname`,`lname`,`age`,`phone`,`lineid`,`work`,`role`,image) VALUES (?)";
+  const sql = "INSERT INTO webapp_researcher (`username`,`email`,`password`,`fname`,`lname`,`age`,`phone`,`lineid`,`work`,image) VALUES (?)";
   const values = [
       req.body.username,
       req.body.email,
@@ -264,7 +275,6 @@ app.post('/create', upload.single('image'), (req, res) => {
       req.body.phone,
       req.body.lineid,
       req.body.work,
-      req.body.role,
       req.file.filename,
   ]
   con.query(sql, [values], (err, result) => {
@@ -297,15 +307,6 @@ app.get('/linebot_image', (req, res) => {
     });
   });
   
-  app.get('/linebot_log_count_types', (req, res) => {
-    const messageType = 'TextMessage';
-  
-    const sql = 'SELECT QuestionType  ,COUNT(*) OVER(PARTITION BY QuestionType) AS QuestionTypeCount FROM linebot_log WHERE MessageType = ?  ;';
-    con.query(sql, messageType, (err, data) => {
-      if (err) return res.json(err);
-      return res.json(data);
-    });
-  });
   
   
   app.get('/linebot_log_count', (req, res) => {
@@ -333,8 +334,8 @@ app.get('/linebot_image', (req, res) => {
   
   
   
-  app.get('/wepapp_labelsuccess', (req, res) => {
-    const sql = "SELECT COUNT(*) AS imageCount FROM wepapp_labelsuccess WHERE img_name IS NOT NULL";
+  app.get('/webapp_uploadimg_count', (req, res) => {
+    const sql = "SELECT COUNT(*) AS imageCount FROM webapp_uploadimg WHERE img_name IS NOT NULL";
     con.query(sql, (err, result) => {
       if (err) return res.json(err);
       const imageCount = result[0].imageCount;
@@ -342,8 +343,8 @@ app.get('/linebot_image', (req, res) => {
     });
   });
   
-  app.get('/webapp_users', (req, res) => {
-    const sql = "SELECT COUNT(*) AS imageCount FROM webapp_users WHERE email IS NOT NULL";
+  app.get('/webapp_researcher_count', (req, res) => {
+    const sql = "SELECT COUNT(*) AS imageCount FROM webapp_researcher WHERE email IS NOT NULL";
     con.query(sql, (err, result) => {
       if (err) return res.json(err);
       const imageCount = result[0].imageCount;
@@ -362,7 +363,7 @@ app.get('/linebot_image', (req, res) => {
   })
   
   app.get('/userlog',(req, res) =>{
-    const sql = "SELECT * FROM webapp_users";
+    const sql = "SELECT * FROM webapp_researcher";
     con.query(sql,(err, data) => {
       if(err) return res.json(err); 
       return res.json(data);
@@ -403,7 +404,7 @@ app.get('/linebot_image', (req, res) => {
   
   
   app.delete('/userdel/:id', function (req, res, next){
-      const sql ="DELETE FROM webapp_users WHERE id = ?"
+      const sql ="DELETE FROM webapp_researcher WHERE id = ?"
       const id = req.params.id;
   
       con.query (sql, [id], (err, data) => {
@@ -438,7 +439,7 @@ app.get('/linebot_image', (req, res) => {
   
   app.get('/publicimg', (req, res) => {
     // ดึงข้อมูลรูปภาพจาก SQL
-    con.query('SELECT img_name FROM wepapp_labelsuccess', (error, results) => {
+    con.query('SELECT img_name FROM webapp_uploadimg', (error, results) => {
       if (error) {
         console.error(error);
         res.status(500).json({ error: 'Failed to fetch image names from database' });
