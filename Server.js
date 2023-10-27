@@ -17,7 +17,7 @@ dotenv.config();
 const app =express();
 app.use(core(
     {
-        origin:["http://158.108.101.25"],
+        origin:["http://localhost:3000"],
         methods:["POST","GET","PUT","DELETE"],
         credentials: true
     }
