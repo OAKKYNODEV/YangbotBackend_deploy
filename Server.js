@@ -17,7 +17,7 @@ import { Client } from '@googlemaps/google-maps-services-js';
 const app =express();
 app.use(core(
     {
-        origin:["http://158.108.101.25/"],
+        origin:["http://158.108.101.25"],
         methods:["POST","GET","PUT","DELETE"],
         credentials: true
     }
