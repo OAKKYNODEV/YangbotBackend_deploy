@@ -26,11 +26,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.static('public'));
 
-const con =  mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  database: 'yang'
-});
+const con =  mysql.createConnection(process.env.DATABASE_URL);
 
 const apiKey = 'AIzaSyAw0nLxD9NsQiJKwFKM38AODUypI8f5FdI';
 const client = new Client({});
