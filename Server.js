@@ -10,14 +10,14 @@ import multer from "multer"
 import path from "path"
 import readXlsxFile from 'read-excel-file/node'
 import fs from 'fs';
-import dotenv from 'dotenv';
-dotenv.config();
+import { Client } from '@googlemaps/google-maps-services-js';
+
 
 
 const app =express();
 app.use(core(
     {
-        origin:["http://158.108.101.25"],
+        origin:["http://localhost:3000"],
         methods:["POST","GET","PUT","DELETE"],
         credentials: true
     }
@@ -26,7 +26,74 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.static('public'));
 
-const con =  mysql.createConnection(process.env.DATABASE_URL);
+const con =  mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  database: 'yang'
+});
+
+const apiKey = 'AIzaSyAw0nLxD9NsQiJKwFKM38AODUypI8f5FdI';
+const client = new Client({});
+
+async function targetLang(stringText) {
+  let sourceLang = 'en';
+  let targetLang = 'th';
+  let url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=" + sourceLang + "&tl=" + targetLang + "&dt=t&q=" + encodeURI(`${stringText}`);
+  let response = await fetch(url);
+  let text = await response.text();
+
+  let jsonText = JSON.parse(text)
+  return jsonText[0][0][0];
+}
+
+async function getAddressFromLatLng(latlong) {
+  try {
+    const response = await client.reverseGeocode({
+      params: {
+        latlng: `${latlong}`,
+        key: apiKey,
+        language: 'th'
+      }
+    });
+
+    const address = response.data.results[0]?.formatted_address;
+    return address;
+  } catch (error) {
+    // console.error('Error:', error.message);
+    return 'No address found';
+  }
+}
+
+
+async function getStrringList(str) {
+  const text = str;
+  const separator = ' '; // ตัวแบ่ง
+
+  const initialArray = text.split(separator);
+
+  const combinedArray = [];
+  var tempArray = '';
+  await Promise.all(initialArray.map(async (word, index) => {
+    // console.log(index);
+    if (index <= 2) {
+      tempArray += ' ' + word;
+    }
+    if (index > 2 && index <= 4) {
+      tempArray += ' <br>  ' + word;
+    }
+    if (index > 4 && index <= 7) {
+      tempArray += ' <br> ' + word;
+    }
+    if (index > 7 && index <= 8) {
+      tempArray += ' <br> ' + word;
+    }
+    if (index > 8) {
+      tempArray += ' <br> ' + word;
+    }
+
+  })).then();
+  return tempArray;
+}
 
 const storage = multer.diskStorage({
     destination:(req,file, cb) => {
@@ -410,13 +477,71 @@ app.get('/linebot_image', (req, res) => {
       })
   });
   
-  app.get('/tableimg',(req, res) =>{
+  app.get('/tableimg', (req, res, next) => {
     const sql = "SELECT * FROM linebot_image";
-    con.query(sql,(err, data) => {
-      if(err) return res.json(err); 
-      return res.json(data);
+    con.query(sql, async (err, data) => {
+      if (err) return res.json("Error");
+  
+      var publisher = Array();
+      await Promise.all(data.map(async values => {
+  
+        const words = values.location_image.split(' ');
+        values.latLong = {
+          lat: words[0],
+          lng: words[1]
+        }
+  
+  
+  
+        // --------------------------------------- วิธีที่ 1
+        // values.latLong = {
+        //   lat: 13.7812438,
+        //   lng: 100.4853644
+        // }
+        9
+        // let textAdd = await getAddressFromLatLng(values.location_image);
+        // await getStrringList(textAdd).then((text) => {
+        //   values.image_address = text;
+  
+        //   publisher.push(values);
+        // });
+  
+        // --------------------------------------- วิธีที่ 1
+  
+  
+        // --------------------------------------- วิธีที่ 2
+        var re = new RegExp("^([A-Z]|[a-z]|[0-9]|[/]|[\\]|[ ]|[\n]|[.]|[ๅภถุึคตจขชๆไำพะัีรนยบลฃฟหกดเ้่าสวงผปแอิืทมใฝ๑๒๓๔ู฿๕๖๗๘๙๐ฎฑธํ๊ณฯญฐฅฤฆฏโฌ็๋ษศซฉฮฺ์ฒฬฦ])+$", "g");
+        if (re.test(values.image_address)) {
+  
+  
+  
+          await getStrringList(values.image_address).then((text) => {
+  
+  
+            values.image_address = text;
+  
+            publisher.push(values);
+          });
+  
+        } else {
+          await targetLang(values.image_address).then(async (text) => {
+            await getStrringList(text).then((text) => {
+              values.image_address = text;
+  
+              publisher.push(values);
+            });
+          })
+        }
+        // --------------------------------------- วิธีที่ 2
+  
+  
+      }))
+      return res.json(publisher)
+  
     })
+  
   })
+  
   
   app.get('/barimg', (req, res) => {
     const sql = "SELECT * FROM linebot_image";
@@ -435,23 +560,26 @@ app.get('/linebot_image', (req, res) => {
   });
   
   app.get('/publicimg', (req, res) => {
-    // ดึงข้อมูลรูปภาพจาก SQL
-    con.query('SELECT img_name FROM webapp_uploadimg', (error, results) => {
-      if (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to fetch image names from database' });
-      } else {
-        const images = results.map((row) => {
-          return {
-            name: row.img_name,
-            // สร้าง URL สำหรับแสดงรูปภาพจากเซิร์ฟเวอร์ Express.js
-            url: `http://localhost:3333/images/${row.img_name}`
-          };
-        });
-        res.json({ images: images });
-      }
+    // ดึงข้อมูลทั้งหมดจากตาราง webapp_uploadimg
+    con.query('SELECT * FROM webapp_uploadimg', (error, results) => {
+        if (error) {
+            console.error(error);
+            res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลจากฐานข้อมูลได้' });
+        } else {
+            // นำผลลัพธ์ที่ได้มาสร้างเป็น array ของ objects
+            const images = results.map((row) => {
+                return {
+                    name: row.img_name,
+                    date: row.date, // เพิ่มการดึงข้อมูล date
+                    // สร้าง URL 
+                    url: `http://localhost:3333/images/${row.img_name}`
+                };
+            });
+            // ส่งข้อมูลเป็น JSON response
+            res.json({ images: images });
+        }
     });
-  });
+});
 
 
 app.listen(3333,()=>{
