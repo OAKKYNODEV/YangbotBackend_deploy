@@ -17,7 +17,7 @@ import { Client } from '@googlemaps/google-maps-services-js';
 const app =express();
 app.use(core(
     {
-        origin:["http://localhost:3333"],
+        origin:["http://localhost:3000"],
         methods:["POST","GET","PUT","DELETE"],
         credentials: true
     }
@@ -26,7 +26,11 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.static('public'));
 
-const con =  mysql.createConnection(process.env.DATABASE_URL);
+const con =  mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  database: 'yang'
+});
 
 const apiKey = 'AIzaSyAw0nLxD9NsQiJKwFKM38AODUypI8f5FdI';
 const client = new Client({});
